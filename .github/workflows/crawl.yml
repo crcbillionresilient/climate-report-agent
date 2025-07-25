@@ -1,0 +1,25 @@
+name: Crawl
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 */7 * *"   # every 7 days at 03:00 UTC
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with: { python-version: "3.11" }
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Run crawler
+        env:
+          GOOGLE_CSE_API_KEY: ${{ secrets.GOOGLE_CSE_API_KEY }}
+          GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          REVIEWER_EMAIL: ${{ secrets.REVIEWER_EMAIL }}
+        run: python src/crawler.py
