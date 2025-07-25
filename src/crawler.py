@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """
-Climate-Adaptation × Insurance – report crawler
-(Every new doc requires human approval via e-mail.)
+Climate-Adaptation × Insurance – report crawler (human-approval required)
 
-Key features
-────────────
-✓ Google Programmable Search + free embeddings (MiniLM)  
-✓ Robust YAML config loading (PyYAML)  
-✓ Handles encrypted PDFs (needs pycryptodome in requirements.txt)  
-✓ Skips unreadable files instead of crashing  
-✓ E-mail digest shows a clean, clickable title for each candidate
+• Searches Google Programmable Search (free tier) once per run.
+• Downloads candidate PDFs/HTML, extracts ~3 000 tokens (≈ first 5 pages).
+• Builds averaged MiniLM (or other) embeddings.
+• Saves/updates data/reports_master.json + .csv.
+• ALWAYS emails the reviewer with ✔ / ✖ / 🚫 links;
+  nothing is auto-published.
+
+Changes in this version
+───────────────────────
+✓ Uses PyYAML to read config.yaml (robust).  
+✓ Installs & imports PyCryptodome automatically (add `pycryptodome` to requirements.txt).  
+✓ Hardened PDF extractor – encrypted or corrupt PDFs are skipped, not crash.  
 """
 
 from __future__ import annotations
@@ -19,13 +23,13 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict
 
-import yaml
+import yaml                        # NEW – proper YAML parser
 import requests, trafilatura
 from bs4 import BeautifulSoup
 from PyPDF2 import PdfReader
 from sentence_transformers import SentenceTransformer
 
-# ────────────── configuration ──────────────
+# ────────── configuration ──────────
 CONFIG = yaml.safe_load(Path("config.yaml").read_text())
 EMBED_MODEL_NAME = CONFIG["embedding_model_name"]
 QUERY            = CONFIG["query"]
@@ -48,8 +52,9 @@ JSON_PATH, CSV_PATH = DATA_DIR/"reports_master.json", DATA_DIR/"reports_master.c
 
 model = SentenceTransformer(EMBED_MODEL_NAME)
 
-# ────────────── helpers ──────────────
+# ────────── helper functions ──────────
 def google_search(q: str, n: int) -> List[str]:
+    """Return up to n Google CSE links."""
     url = "https://www.googleapis.com/customsearch/v1"
     params = {"key": GOOGLE_API_KEY, "cx": GOOGLE_CSE_ID, "q": q, "num": min(n,10)}
     links, start = [], 1
@@ -76,7 +81,7 @@ def extract_pdf(b: bytes, pages: int = 5):
     try:
         reader = PdfReader(BytesIO(b))
         total_pages = len(reader.pages)
-        texts = [p.extract_text() or "" for p in reader.pages[:pages]]
+        texts = [page.extract_text() or "" for page in reader.pages[:pages]]
         return "\n".join(texts), total_pages
     except Exception as err:
         raise ValueError(f"Unreadable PDF ({err.__class__.__name__})")
@@ -94,48 +99,34 @@ def embed(text: str):
     vecs = model.encode(list(chunks(text.split())))
     return vecs.mean(axis=0)
 
-def pretty_title_from_url(url: str) -> str:
-    """Turn last path segment into a human-readable title."""
-    name = Path(url.split("?")[0]).stem
-    name = re.sub(r"[_\\-]+", " ", name)
-    return name.title()[:120] or "Untitled"
-
 def email_digest(cands: List[Dict]):
     if not cands: return
     msg = EmailMessage()
     msg["Subject"] = f"[Climate Agent] {len(cands)} new reports need approval ({datetime.utcnow().date()})"
     msg["From"], msg["To"] = SMTP_USER, REVIEWER_EMAIL
-
     rows=[]
     for r in cands:
         ok=f"mailto:{REVIEWER_EMAIL}?subject=APPROVE%20{r['sha']}"
         no=f"mailto:{REVIEWER_EMAIL}?subject=REJECT%20{r['sha']}"
         nv=f"mailto:{REVIEWER_EMAIL}?subject=NEVER%20{r['sha']}"
-        rows.append(
-            f"<tr>"
-            f"<td><a href='{r['url']}'>{r['title']}</a></td>"
-            f"<td>{r['year']}</td>"
-            f"<td>{r['score']:.2f}</td>"
-            f"<td><a href='{ok}'>✔</a> / <a href='{no}'>✖</a> / <a href='{nv}'>🚫</a></td>"
-            f"</tr>"
-        )
-
+        rows.append(f"<tr><td>{r['title']}</td><td>{r['year']}</td>"
+                    f"<td>{r['score']:.2f}</td>"
+                    f"<td><a href='{ok}'>✔</a> / <a href='{no}'>✖</a> / <a href='{nv}'>🚫</a></td></tr>")
     body = ("<p>All new candidate reports require a decision:</p>"
-            "<table border='1' cellspacing='0' cellpadding='4'>"
+            "<table border='1' cellpadding='4' cellspacing='0'>"
             "<tr><th>Title</th><th>Year</th><th>Score</th><th>Action</th></tr>"
             + "".join(rows) + "</table>")
     msg.add_alternative(body, subtype='html')
-
     with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as s:
         s.starttls(context=ssl.create_default_context())
         s.login(SMTP_USER, SMTP_PASS)
         s.send_message(msg)
     print("Email sent to reviewer.")
 
-# ────────────── main crawl ──────────────
-existing={}
+# ────────── main crawl ──────────
+existing = {}
 if JSON_PATH.exists():
-    existing={r["sha"]: r for r in json.load(JSON_PATH.open())}
+    existing = {r["sha"]: r for r in json.load(JSON_PATH.open())}
 
 links = google_search(QUERY, NUM_RESULTS)
 new=[]
@@ -156,15 +147,16 @@ for url in links:
         pages = len(text.split()) // 500
 
     if pages < MIN_PAGES: continue
-    yrmatch = re.search(r"(19|20)\\d{2}", text[:4000] + url)
+
+    yrmatch = re.search(r"(19|20)\d{2}", text[:4000] + url)
     year = int(yrmatch.group()) if yrmatch else 1900
     if year < MIN_YEAR: continue
 
     vec = embed(text)
-    score = float(vec.mean())  # placeholder score
+    score = float(vec.mean())             # placeholder relevance score
 
     rec = {
-        "title": pretty_title_from_url(url),
+        "title": Path(url).name.replace("_", " ")[:120],
         "year": year,
         "pages": pages,
         "url": url,
