@@ -1,0 +1,18 @@
+name: Train
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "data/labels/**"
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with: { python-version: "3.11" }
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Train model
+        run: python src/relevance_model.py
