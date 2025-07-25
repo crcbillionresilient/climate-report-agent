@@ -31,6 +31,7 @@ from sentence_transformers import SentenceTransformer
 
 # ────────── configuration ──────────
 CONFIG = yaml.safe_load(Path("config.yaml").read_text())
+FORCE_EMAIL = CONFIG.get("force_email", False)   # <-- NEW
 EMBED_MODEL_NAME = CONFIG["embedding_model_name"]
 QUERY            = CONFIG["query"]
 NUM_RESULTS      = CONFIG["num_results"]
@@ -171,13 +172,14 @@ for url in links:
     }
     new.append(rec)
 
-if new:
+if new or FORCE_EMAIL:
     allrecs = list(existing.values()) + new
     JSON_PATH.write_text(json.dumps(allrecs, indent=2))
     with CSV_PATH.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=allrecs[0].keys())
         w.writeheader(); w.writerows(allrecs)
     print(f"Saved {len(allrecs)} total records; {len(new)} new.")
-    email_digest(new)
+    # If we're in test mode (FORCE_EMAIL) and no new docs, send the last 10 for review.
+    email_digest(new if new else allrecs[-10:])
 else:
-    print("No new records.")
+    print("No new records and FORCE_EMAIL is false.")
