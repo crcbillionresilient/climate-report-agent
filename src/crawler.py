@@ -21,9 +21,10 @@ import requests, trafilatura
 from bs4 import BeautifulSoup
 from PyPDF2 import PdfReader
 from sentence_transformers import SentenceTransformer
+import yaml          # NEW – robust YAML parser
 
 # ---------- config ----------
-CONFIG = json.loads(Path("config.yaml").read_text().replace("'", '"'))
+CONFIG = yaml.safe_load(Path("config.yaml").read_text())
 EMBED_MODEL_NAME = CONFIG["embedding_model_name"]
 QUERY            = CONFIG["query"]
 NUM_RESULTS      = CONFIG["num_results"]
