@@ -9,3 +9,4 @@ window_tokens: 1024
 window_stride: 512
 
 reviewer_email_env: REVIEWER_EMAIL
+force_email: true
