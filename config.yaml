@@ -1,0 +1,11 @@
+embedding_model_name: all-MiniLM-L6-v2
+
+query: '(insurance OR "parametric insurance") ("climate adaptation" OR "climate resilience") filetype:pdf'
+num_results: 30
+min_year: 2020
+min_pages: 10
+
+window_tokens: 1024
+window_stride: 512
+
+reviewer_email_env: REVIEWER_EMAIL
