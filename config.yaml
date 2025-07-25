@@ -1,0 +1,15 @@
+# Embedding model: keep MiniLM first; upgrade to e5-base by editing this line only
+embedding_model_name: all-MiniLM-L6-v2
+
+# Google search parameters
+query: '(insurance OR "parametric insurance") ("climate adaptation" OR "climate resilience") filetype:pdf'
+num_results: 30
+min_year: 2020
+min_pages: 10
+
+# Inference windowing
+window_tokens: 1024
+window_stride: 512
+
+# Email (values are pulled from GitHub Secrets at runtime)
+reviewer_email_env: REVIEWER_EMAIL
