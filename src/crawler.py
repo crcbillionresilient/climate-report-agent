@@ -109,9 +109,14 @@ def email_digest(cands: List[Dict]):
         ok=f"mailto:{REVIEWER_EMAIL}?subject=APPROVE%20{r['sha']}"
         no=f"mailto:{REVIEWER_EMAIL}?subject=REJECT%20{r['sha']}"
         nv=f"mailto:{REVIEWER_EMAIL}?subject=NEVER%20{r['sha']}"
-        rows.append(f"<tr><td>{r['title']}</td><td>{r['year']}</td>"
-                    f"<td>{r['score']:.2f}</td>"
-                    f"<td><a href='{ok}'>✔</a> / <a href='{no}'>✖</a> / <a href='{nv}'>🚫</a></td></tr>")
+        rows.append(
+    f"<tr>"
+    f"<td><a href='{r['url']}'>{r['title']}</a></td>"   # ← clickable link
+    f"<td>{r['year']}</td>"
+    f"<td>{r['score']:.2f}</td>"
+    f"<td><a href='{ok}'>✔</a> / <a href='{no}'>✖</a> / <a href='{nv}'>🚫</a></td>"
+    f"</tr>"
+)
     body = ("<p>All new candidate reports require a decision:</p>"
             "<table border='1' cellpadding='4' cellspacing='0'>"
             "<tr><th>Title</th><th>Year</th><th>Score</th><th>Action</th></tr>"
