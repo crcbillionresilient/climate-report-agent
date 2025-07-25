@@ -1,56 +1,25 @@
 name: Crawl
-
 on:
-  workflow_dispatch:      # allows manual runs
+  workflow_dispatch:
   schedule:
-    - cron: "0 3 */7 * *" # every 7 days at 03:00 UTC
-
+    - cron: "0 3 */7 * *"   # every 7 days at 03:00 UTC
 jobs:
   crawl:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
+        with: { python-version: "3.11" }
+      - name: Install deps
         run: pip install -r requirements.txt
-
       - name: Run crawler
         env:
           GOOGLE_CSE_API_KEY: ${{ secrets.GOOGLE_CSE_API_KEY }}
-          GOOGLE_CSE_ID:      ${{ secrets.GOOGLE_CSE_ID }}
-          SMTP_SERVER:        ${{ secrets.SMTP_SERVER }}
-          SMTP_PORT:          ${{ secrets.SMTP_PORT }}
-          SMTP_USERNAME:      ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD:      ${{ secrets.SMTP_PASSWORD }}
-          REVIEWER_EMAIL:     ${{ secrets.REVIEWER_EMAIL }}
+          GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          REVIEWER_EMAIL: ${{ secrets.REVIEWER_EMAIL }}
         run: python src/crawler.py
-
-      # ─────────────────────────────────────────────────────
-      # NEW: commit (or update) the data/reports files so
-      #      future runs can de-duplicate and you can inspect
-      #      them in the repo.
-      # ─────────────────────────────────────────────────────
-      - name: Commit report database
-        if: success()        # only try if crawler finished OK
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # auto-provided by GitHub
-        run: |
-          git config user.name  "climate-agent-bot"
-          git config user.email "bot@example.com"
-          # Create data/ if it doesn't exist yet
-          mkdir -p data
-          # Stage any JSON/CSV changes (ignore if none exist)
-          git add data/*.json data/*.csv 2>/dev/null || true
-          # Commit only when there are staged changes
-          if ! git diff --cached --quiet; then
-            git commit -m "Update reports database"
-            git push
-          else
-            echo "No changes to commit."
-          fi
